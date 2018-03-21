@@ -1,16 +1,20 @@
 # 社团招募系统（Club-to-recruit）
-*author: [卞荣成](https://www.itsolotime.com)
+```
+author: [卞荣成](https://www.itsolotime.com)
 version：V1.0.0
 first publish： 小泊随記
-state: 暂无更新*
+state: 暂无更新
+```
 
 ##  第一章 准备
 ### 1.1项目描述
+```
 1)此项目为一个前后台分离的社团招募系统, 包括前端应用和后端应用
 2)包括用户注册/登陆, 社团/学生列表, 实时聊天等模块
 3)前端: 使用React全家桶+ES6+Webpack等技术
 4)后端: 使用Node + express + mongodb + socketIO等技术
 5)采用模块化、组件化、工程化的模式开发
+```
 
 ### 1.2技术选型
 ![](https://i.imgur.com/hA4lCJ8.png)
@@ -22,6 +26,7 @@ state: 暂无更新*
 ![](https://i.imgur.com/3hcXvop.png)
 
 ### 1.5使用技术
+```
 1)使用组件化、模块化、工程化的开发模式
 2)使用create-react-app脚手架初始化react项目开发
 3)使用node+express+mongoose+mongodb搭建后台开发
@@ -35,7 +40,7 @@ state: 暂无更新*
 11)使用socket.io实现实时通信
 12)使用blueimp-md5对密码进行MD5加密处理
 13)使用browser-cookies操作浏览器端cookie数据
-
+```
 ### 1.6常用命令
 #### npm常用命令
 ```
