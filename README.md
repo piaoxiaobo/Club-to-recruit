@@ -606,3 +606,434 @@ conn.on('connected',()=>{
     console.log('连接数据库成功！')
 });
 ```
+### 2.8注册/登陆后台处理
+#### 2.8.1下载相关依赖包
+```
+npm install --save body-parser cookie-parser
+npm install --save blueimp-md5
+```
+#### 2.8.2创建数据库操作模型server/models.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+const mongoose = require('mongoose');
+mongoose.connect('mongodb://localhost:27017/clubs');
+const conn = mongoose.connection;
+conn.on('connected',()=>{
+    console.log('连接数据库成功！')
+});
+
+const userSchema= mongoose.Schema({
+
+    // 用户名
+    'name': {type: String, required: true},
+    // 密码
+    'pwd': {type: String, required: true},
+    // 类型
+    'type': {'type': String, required: true},
+    // 头像
+    'avatar': {'type': String},
+    // 社团/学生介绍
+    'desc': {'type': String},
+    // 职位名
+    'title': {'type': String},
+    // 如果选择club 还有两个字段
+    // 社团名称
+    'clubs': {'type': String},
+    // 总人数
+    'sums': {'type': String}
+});
+
+mongoose.model('user',userSchema);
+
+
+module.exports = {
+    getModel(name) {
+        return mongoose.model(name)
+    }
+};
+```
+#### 2.8.3应用路由器模块: server/appRouter.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+const express =require('express');
+const md5 = require('blueimp-md5');
+const models = require('./models');
+const UserModel = models.getModel('user');
+const router = express.Router();
+const filter = {'pwd': 0};
+
+//注册路由
+router.post('/register', function (req, res) {
+    const {name, pwd, type} = req.body;
+    UserModel.findOne({name}, function (err, user) {
+        if(user) {
+            res.send({code: 1, msg: '此用户已存在'})
+        } else {
+            new UserModel({name, pwd: md5(pwd), type}).save(function (err, user) {
+                res.cookie('userid', user._id);
+                res.send({code: 0, data: {_id: user._id, name, type}})
+            })
+        }
+    })
+});
+
+
+//登录路由
+router.post('/login', function (req, res) {
+    const {name, pwd} = req.body;
+    UserModel.findOne({name, pwd: md5(pwd)}, filter, function (err, user) {
+        if(!user) {
+            res.send({code: 1, msg: '用户名或密码错误'})
+        } else {
+            res.cookie('userid', user._id);
+            res.send({code: 0, data: user})
+        }
+    })
+});
+
+
+module.exports = router;
+
+```
+#### 2.8.4服务器模块: server/server.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+const express = require('express');
+const bodyParser = require('body-parser'); // 解析请求体
+const cookieParser = require('cookie-parser');
+const appRouter = require('./appRouter');
+
+const app =express();
+
+// 解析cookie数据
+app.use(cookieParser());
+// 解析请求体(ajax请求: json数据格式)
+app.use(bodyParser.json());
+
+app.use(bodyParser.urlencoded({ extended: false }));
+
+//注册跟路由
+app.use('/api', appRouter);
+
+app.listen('4000',()=>{
+  console.log('服务器启动成功~~')
+});
+```
+### 2.9注册/登陆前台处理
+#### 2.9.1下载相关依赖包
+```
+npm install --save axios
+```
+#### 2.9.2封装ajax请求代码
+1)api/ajax.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+import axios from 'axios'
+
+export default function ajax(url = '', data = {}, type = 'GET') {
+    if (type === 'GET') {
+        let dataStr = '';
+        Object.keys(data).forEach(key => {
+            dataStr += key + '=' + data[key] + '&'
+        })
+        if (dataStr !== '') {
+            dataStr = dataStr.substr(0, dataStr.lastIndexOf('&'))
+            url = url + '?' + dataStr
+        }
+        // 发送get请求
+        return axios.get(url)
+    }else{
+      return axios.post(url,data)
+    }
+}
+```
+2)api/index.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+import ajax from './ajax';
+
+//请求注册
+export const reqRegister = (user) =>ajax('/api/register',user,'POST');
+
+//请求登录
+export const reqLogin = (user) =>ajax('/api/login',user,'POST');
+```
+3）配置ajax请求的代理: package.json
+```
+//这里的端口要与服务器所开端口一致
+"proxy": "http://localhost:4000"
+```
+#### 2.9.3使用redux管理用户信息
+1)redux/action-types.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+/*
+包含所有action的type常量名称的模块
+*/
+
+// 验证成功
+export const AUTH_SUCCESS = 'AUTH_SUCCESS';
+// 请求出错
+export const ERROR_MSG = 'ERROR_MSG';
+```
+2)redux/actions.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+import {AUTH_SUCCESS,ERROR_MSG} from './action-types'
+import {reqLogin,reqRegister} from '../api/index'
+
+
+//同步错误消息
+const errorMsg = (msg) =>({type:ERROR_MSG,data:msg});
+//同步成功响应
+const authSuccess = (user) =>({type:AUTH_SUCCESS,data:user});
+
+//异步注册
+export const register =({name,pwd,pwd2,type}) => {
+
+    if(!name || !pwd ){
+        return errorMsg('请输入用户名或密码！');
+    }else if(pwd !== pwd2){
+        return errorMsg('两次输入密码不一致！')
+    }
+
+    return async dispatch =>{
+
+        const response = await reqRegister({name,pwd,type});
+        const result =response.data;
+
+        if(result.code === 0){
+            dispatch(authSuccess(result.data))
+        }else{
+            dispatch(errorMsg(result.msg))
+        }
+
+    }
+};
+
+
+//异步登录
+export const login =({name,pwd}) => {
+    if(!name || !pwd ){
+        return errorMsg('请输入用户名或密码！');
+    }
+
+    return async dispatch =>{
+
+        const response = await reqLogin({name,pwd});
+        const result =response.data;
+
+        if(result.code === 0){
+            dispatch(authSuccess(result.data))
+        }else{
+            dispatch(errorMsg(result.msg))
+        }
+
+    }
+};
+
+```
+3)redux/reducers.js
+```
+/**
+ * Created by Bianrongcheng on 2018
+ */
+/*
+包含多个用于生成新的state的reducer函数的模块
+ */
+import {combineReducers} from 'redux'
+import {AUTH_SUCCESS,ERROR_MSG} from './action-types'
+
+const initUser = {
+    name:'',
+    type:'',
+    msg:'',
+    redirectTo:''
+};
+
+function user(state=initUser,action) {
+    switch(action.type){
+        case AUTH_SUCCESS:
+            return {...action.data,redirectTo:'/'};
+        case ERROR_MSG:
+            return {...state,msg:action.data};
+        default:
+            return state;
+    }
+}
+
+
+
+export default combineReducers({
+    user
+})
+```
+#### 2.9.4注册组件: register.jsx
+```
+/*
+用户注册的路由组件
+ */
+import React from 'react';
+import {Button,List,InputItem,WingBlank,WhiteSpace,Radio} from 'antd-mobile';
+import Logo from '../../components/logo';
+import {register} from '../../redux/actions';
+import {connect} from 'react-redux';
+import {Redirect} from 'react-router-dom';
+
+const RadioItem = Radio.RadioItem;
+class Register extends React.Component {
+
+    state = {
+        name:'',
+        pw:'',
+        pw2:'',
+        type:'studs'
+    };
+
+    handleChange =(name,value) =>{
+        this.setState({[name]:value})
+    };
+
+    //前往登录界面
+    gologin =() =>{
+      this.props.history.replace('/login')
+    };
+
+    handleRegister = () =>{
+        this.props.register(this.state)
+    };
+
+    render(){
+        const {type} =this.state;
+        const {user} =this.props;
+        if (user.redirectTo) {
+            return <Redirect to={user.redirectTo}/>
+        }
+
+      return(
+          <div>
+              <Logo/>
+              {user.msg ? <p className='error-msg'>{user.msg}</p> : ''}
+              <WingBlank>
+                  <List>
+                      <InputItem onChange={val => this.handleChange('name', val)} placeholder='输入用户名'>用户名</InputItem>
+                      <WhiteSpace />
+                      <InputItem onChange={val => this.handleChange('pwd', val)} placeholder='输入密码' type='password'>密码</InputItem>
+                      <WhiteSpace />
+                      <InputItem onChange={val => this.handleChange('pwd2', val)} placeholder='再次输入密码' type='password'>确认密码</InputItem>
+                      <WhiteSpace />
+                      <RadioItem checked={type === 'studs'}  onChange={() => this.handleChange('type', 'studs')}>学生</RadioItem>
+                      <WhiteSpace />
+                      <RadioItem checked={type === 'club' }  onChange={() => this.handleChange('type', 'club')}>社团</RadioItem>
+                      <WhiteSpace />
+                      <Button type='primary' onClick={this.handleRegister}>注册</Button>
+                      <WhiteSpace />
+                      <Button onClick={this.gologin}>已经有账号</Button>
+                  </List>
+              </WingBlank>
+          </div>
+      )
+    }
+ }
+
+export default connect(
+    state => ({user:state.user}),
+    {register}
+)(Register);
+
+```
+#### 2.9.5登陆组件: login.jsx
+```
+/*
+* 用户登录的路由组件
+* */
+import React from 'react';
+import {Redirect} from 'react-router-dom'
+import {connect} from 'react-redux'
+import {login} from '../../redux/actions'
+import {Button,WhiteSpace,WingBlank,InputItem,List} from 'antd-mobile';
+
+
+import Logo from '../../components/logo';
+
+class Login extends React.Component {
+    //初始默认状态
+    state = {
+        name: '',
+        pwd: '',
+    };
+
+    //前往注册界面
+    goRegister =() => {
+        this.props.history.replace('/register')
+    };
+
+    
+    //登录跳转
+    handleLogin = () =>{
+        this.props.login(this.state)
+    };
+
+    handleChange = (name,value) =>{
+        this.setState({[name]: value})
+    };
+
+
+    render(){
+        const {redirectTo, msg} = this.props;
+        if (redirectTo) {
+            return <Redirect to={redirectTo}/>
+        }
+      return(
+          <div>
+              {/*引入logo图片UI组件*/}
+              <Logo/>
+              {msg?<p className='error-msg'>{msg}</p>:null}
+              <WingBlank>
+                  <List>
+                      <InputItem placeholder='输入用户名' onChange={val => this.handleChange('name', val)}>用户名</InputItem>
+                      <WhiteSpace />
+                      <InputItem type='password' placeholder='输入密码' onChange={val => this.handleChange('pwd', val)}>密码</InputItem>
+                      <WhiteSpace />
+                      <Button type='primary' onClick={this.handleLogin} >登录</Button>
+                      <WhiteSpace />
+                      <Button onClick={this.goRegister}>还没有账号</Button>
+                  </List>
+              </WingBlank>
+          </div>
+      )
+    }
+ }
+
+export default connect(
+    state =>state.user,
+    {login}
+)(Login);
+
+
+```
+样式: assets/css/index.less
+```
+.error-msg {
+  color: red;
+  text-align: center;
+  font-size: 18px;
+}
+
+需要在index.js中引入：
+import './assets/css/index.less'
+```

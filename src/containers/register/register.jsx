@@ -3,10 +3,13 @@
  */
 import React from 'react';
 import {Button,List,InputItem,WingBlank,WhiteSpace,Radio} from 'antd-mobile';
-import Logo from '../../components/logo'
+import Logo from '../../components/logo';
+import {register} from '../../redux/actions';
+import {connect} from 'react-redux';
+import {Redirect} from 'react-router-dom';
 
-const RadioItem = Radio.RadioItem
-export default class Register extends React.Component {
+const RadioItem = Radio.RadioItem;
+class Register extends React.Component {
 
     state = {
         name:'',
@@ -24,12 +27,21 @@ export default class Register extends React.Component {
       this.props.history.replace('/login')
     };
 
+    handleRegister = () =>{
+        this.props.register(this.state)
+    };
+
     render(){
         const {type} =this.state;
+        const {user} =this.props;
+        if (user.redirectTo) {
+            return <Redirect to={user.redirectTo}/>
+        }
 
       return(
           <div>
               <Logo/>
+              {user.msg ? <p className='error-msg'>{user.msg}</p> : ''}
               <WingBlank>
                   <List>
                       <InputItem onChange={val => this.handleChange('name', val)} placeholder='输入用户名'>用户名</InputItem>
@@ -42,7 +54,7 @@ export default class Register extends React.Component {
                       <WhiteSpace />
                       <RadioItem checked={type === 'club' }  onChange={() => this.handleChange('type', 'club')}>社团</RadioItem>
                       <WhiteSpace />
-                      <Button type='primary'>注册</Button>
+                      <Button type='primary' onClick={this.handleRegister}>注册</Button>
                       <WhiteSpace />
                       <Button onClick={this.gologin}>已经有账号</Button>
                   </List>
@@ -52,3 +64,7 @@ export default class Register extends React.Component {
     }
  }
 
+export default connect(
+    state => ({user:state.user}),
+    {register}
+)(Register);

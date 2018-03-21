@@ -4,6 +4,10 @@
   "private": true,
   "dependencies": {
     "antd-mobile": "^2.1.8",
+    "axios": "^0.18.0",
+    "blueimp-md5": "^2.10.0",
+    "body-parser": "^1.18.2",
+    "cookie-parser": "^1.4.3",
     "express": "^4.16.3",
     "mongoose": "^5.0.11",
     "react": "^16.2.0",
@@ -27,5 +31,6 @@
     "less-loader": "^4.1.0",
     "react-app-rewired": "^1.5.0",
     "redux-devtools-extension": "^2.13.2"
-  }
+  },
+  "proxy": "http://localhost:4000"
 }
